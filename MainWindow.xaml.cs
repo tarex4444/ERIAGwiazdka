@@ -1,7 +1,9 @@
 ﻿using System.Diagnostics;
 using System.IO;
+using System.Security.Cryptography.X509Certificates;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Shapes;
 
@@ -9,61 +11,160 @@ namespace Algorytm_A_gwiazdka
 {
     public partial class MainWindow : Window
     {
-        private char[][] matrix;
         private const int CellSize = 20;
-        private int fromX = 0, fromY = 19, toX = 19, toY = 0;
+        public int[,] matrix;
+        Node start = new Node(0, 19);
+        Node end = new Node(19, 0);
+        private bool isCtrlMode = false;
         public MainWindow()
         {
             InitializeComponent();
-        }
-
-        static char[][] ReadGridFromFile(string fileName)
-        {
-            List<char[]> rows = new List<char[]>();
-
-            try
+            matrix = new int[20, 20];
+            for (int i = 0; i < 20; i++)
             {
-                foreach (string line in File.ReadLines(fileName))
+                for (int j = 0; j < 20; j++)
                 {
-                    // Usunięcie spacji i zamiana na tablicę char[]
-                    rows.Add(line.Replace(" ", "").ToCharArray());
+                    matrix[i, j] = 0;
                 }
             }
-            catch (IOException e)
+            DrawGrid(matrix);
+            this.KeyDown += MainWindow_KeyDown;            
+        }
+        private void MainWindow_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.LeftCtrl && isCtrlMode == false)
             {
-                Console.WriteLine("Błąd podczas wczytywania pliku: " + e.Message);
+                isCtrlMode = true;
+                SelectModeLabel.Content = "Tryb - wybór przeszkód";
+                SelectModeLabel.Background = Brushes.LightGray;
             }
+            else if (e.Key == Key.LeftCtrl && isCtrlMode == true)
+            {
+                isCtrlMode = false;
+                SelectModeLabel.Content = "Tryb - wybór startu/finiszu";
+                SelectModeLabel.Background = Brushes.LightBlue;
+            }
+        }
+        static int[,] ReadGridFromFile(string fileName)
+        {
+            int[,] empty = { };
+            try
+            {                
+                string[] lines = File.ReadAllLines(fileName);            
+                var validLines = lines.Where(line => !string.IsNullOrWhiteSpace(line))
+                                      .Select(line => line.Split(' ')                
+                                                          .Where(s => int.TryParse(s, out _)) 
+                                                          .Select(int.Parse)                  
+                                                          .ToArray())                         
+                                      .ToList();
+                int rowCount = validLines.Count;
+                int colCount = validLines.Max(row => row.Length);
+                int[,] result = new int[rowCount, colCount];
+                for (int i = 0; i < rowCount; i++)
+                {
+                    for (int j = 0; j < validLines[i].Length; j++)
+                    {
+                        result[i, j] = validLines[i][j];
+                    }
+                }
 
-            // Konwersja List<char[]> na char[][]
-            return rows.ToArray();
+                return result;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Wystąpił błąd podczas odczytu pliku: {ex.Message}");
+                return empty;
+            }
         }
 
-        private void DrawGrid()
+        private void DrawGrid(int[,] map)
         {
             PathCanvas.Children.Clear();
 
-            for (int x = 0; x < matrix.Length; x++)
+            for (int x = 0; x < map.GetLength(0); x++)
             {
-                for (int y = 0; y < matrix[x].Length; y++)
+                for (int y = 0; y < map.GetLength(0); y++)
                 {
                     Rectangle rect = new Rectangle
                     {
                         Width = CellSize,
                         Height = CellSize,
                         Stroke = Brushes.Black,
-                        Fill = matrix[x][y] switch
+                        Fill = map[x,y] switch
                         {
-                            '5' => Brushes.DarkGray,
-                            '3' => Brushes.LightBlue,
-                            '0' => Brushes.White
+                            5 => Brushes.DarkGray,
+                            3 => Brushes.Green,
+                            2 => Brushes.DarkGreen,
+                            1 => Brushes.Red,
+                            0 => Brushes.White
                         }
                     };
+                    rect.Tag = new Point(x, y);
+                    rect.MouseDown += Rectangle_MouseDown;
                     Canvas.SetLeft(rect, y * CellSize);
                     Canvas.SetTop(rect, x * CellSize);
                     PathCanvas.Children.Add(rect);
                 }
             }
         }
+        private void Rectangle_MouseDown(object sender, MouseButtonEventArgs e) 
+        {
+            if (sender is Rectangle rect && rect.Tag is Point point)
+            {
+                int row = (int)point.X;
+                int col = (int)point.Y;
+                if (isCtrlMode)
+                {
+                    matrix[row, col] = 5;
+                    rect.Fill = Brushes.DarkGray;
+                } else
+                {
+                    if (e.ChangedButton == MouseButton.Left)
+                    {
+                        start.X = row;
+                        start.Y = col;
+                        foreach(var child in PathCanvas.Children)
+                        {
+                            if (child is Rectangle rectangle)
+                            {
+                                if (rectangle.Fill == Brushes.LightBlue)
+                                {
+                                    rectangle.Fill = Brushes.White;
+                                }
+                            }
+                        }
+                        rect.Fill = Brushes.LightBlue;
+                    }
+                    else if (e.ChangedButton == MouseButton.Right)
+                    {
+                        end.X = row;
+                        end.Y = col;
+                        foreach (var child in PathCanvas.Children)
+                        {
+                            if (child is Rectangle rectangle)
+                            {
+                                if (rectangle.Fill == Brushes.DarkBlue)
+                                {
+                                    rectangle.Fill = Brushes.White;
+                                }
+                            }
+                        }
+                        rect.Fill = Brushes.DarkBlue;
+                    }
+                    for (int i = 0; i < 20; i++)
+                    {
+                        for (int j = 0; j < 20; j++)
+                        {
+                            if (matrix[i, j] == 3)
+                            {
+                                matrix[i, j] = 0;
+                            }
+                        }
+                    }
+                }              
+            }
+        }
+
         private void ReadButton_Click(object sender, RoutedEventArgs e)
         {
             ProcessStartInfo startInfo = new ProcessStartInfo()
@@ -88,130 +189,134 @@ namespace Algorytm_A_gwiazdka
             }
             //Process.Start("map_generator.exe");
             matrix = ReadGridFromFile("grid.txt");
-            DrawGrid();
+            start.X = 0;
+            start.Y = 19;
+            end.X = 19;
+            end.Y = 0;
+            DrawGrid(matrix);
         }
         private void RunButton_Click(object sender, RoutedEventArgs e)
         {
-            int fromXrb = fromX, fromYrb = fromY, toXrb = toX, toYrb = toY;
-            matrixNode endNode = Agwiazdka(matrix, fromXrb, fromYrb, toXrb, toYrb);
-
-            if (endNode == null || matrix[0][19] == '5' || matrix[19][0] == '5')
+            List<Node> path = FindPath(matrix, start, end);
+            if (path != null)
             {
-                MessageBox.Show("Nie znaleziono ścieżki!");
-                return;
-            }
-
-            Stack<matrixNode> path = new Stack<matrixNode>();
-            while (endNode.x != fromXrb || endNode.y != fromYrb)
-            {
-                path.Push(endNode);
-                endNode = endNode.parent;
-            }
-            path.Push(endNode);
-
-            while (path.Count > 0)
-            {
-                var node = path.Pop();
-                matrix[node.x][node.y] = '3';
-            }
-
-            DrawGrid();
-        }
-
-        //klasa dla węzła. Fr = koszt od węzła początkowego, to = heurystyka (odległość euklidesowa) sum= koszt, suma fr i to (zaimplementowane w funkcji Agwiazdka). X i Y to koordynaty, a parent wskazuje na węzeł poprzedzajacy (rodzica)
-        public class matrixNode
-        {
-            public int fr = 0, to = 0, sum = 0;
-            public int x, y;
-            public matrixNode parent;
-        }
-
-        public static matrixNode Agwiazdka(char[][] matrix, int fromX, int fromY, int toX, int toY)
-        {
-
-            //Klucze dla zielonych(otwartych) i czerwonych(zamkniętych) to x.ToString() i y.ToString() matrixNode'a
-            Dictionary<string, matrixNode> greens = new Dictionary<string, matrixNode>();
-            Dictionary<string, matrixNode> reds = new Dictionary<string, matrixNode>();
-
-            matrixNode startNode = new matrixNode { x = fromX, y = fromY }; //węzeł startowy
-            string key = startNode.x.ToString() + startNode.y.ToString();
-            greens.Add(key, startNode);
-            //sprawdza nam węzeł z listy otwartej o najmniejszym koszcie (sum), żeby można było dalej z niego szukać. Przy równych wartościach, bierze tego o mniejszym kluczu (wcześniej napotkaną) 
-            Func<KeyValuePair<string, matrixNode>> smallestGreen = () =>
-            {
-                KeyValuePair<string, matrixNode> smallest = greens.ElementAt(0);
-                foreach (KeyValuePair<string, matrixNode> item in greens)
+                foreach (var node in path)
                 {
-                    if (item.Value.sum < smallest.Value.sum ||
-                        (item.Value.sum == smallest.Value.sum && string.Compare(item.Key, smallest.Key, StringComparison.Ordinal) < 0))
+                    matrix[node.X, node.Y] = 3;
+                    DrawGrid(matrix);
+                }  
+            } else
+            {
+                MessageBox.Show("Nie znaleziono ścieżki!","Brak możliwości znalezienia ścieżki.",MessageBoxButton.OK, MessageBoxImage.Error);
+            }       
+        }
+
+        
+        public class Node
+        {
+            public int X { get; set; }
+            public int Y { get; set; }
+            public double G { get; set; } 
+            public double H { get; set; } 
+            public double F => G + H; 
+            public Node Parent { get; set; } 
+
+            public Node(int x, int y)
+            {
+                X = x;
+                Y = y;
+                G = 0;
+                H = 0;
+                Parent = null;
+            }
+
+            public override bool Equals(object obj)
+            {
+                return obj is Node node && X == node.X && Y == node.Y;
+            }
+            public override int GetHashCode()
+            {
+                return HashCode.Combine(X, Y);
+            }
+        }
+        private static List<Node> GetNeighbors(Node node, int[,] grid)
+        {
+            var neighbors = new List<Node>();
+            int[] dx = { 0, 0, -1, 1 };
+            int[] dy = { -1, 1, 0, 0 };
+
+            for (int i = 0; i < 4; i++)
+            {
+                int newX = node.X + dx[i];
+                int newY = node.Y + dy[i];
+
+                if (newX >= 0 && newY >= 0 && newX < grid.GetLength(0) && newY < grid.GetLength(1) && grid[newX, newY] == 0)
+                {
+                    neighbors.Add(new Node(newX, newY));
+                }
+            }
+
+            return neighbors;
+        }
+
+        private static double Heuristic(Node a, Node b)
+        {
+            return Math.Sqrt(Math.Pow(a.X - b.X, 2) + Math.Pow(a.Y - b.Y, 2));
+        }
+
+        public List<Node> FindPath(int[,] grid, Node start, Node goal)
+        {
+            var greens = new List<Node>();
+            var reds = new List<Node>();
+
+            greens.Add(start);
+
+            while (greens.Count > 0)
+            {
+                Node current = greens
+                    .OrderBy(n => n.F)
+                    .ThenByDescending(n => greens.IndexOf(n)) 
+                    .First();
+
+                if (current.Equals(goal))
+                {
+                    var path = new List<Node>();
+                    while (current != null)
                     {
-                        smallest = item;
+                        path.Add(current);
+                        current = current.Parent;
                     }
+                    return path;
                 }
 
-                return smallest;
-            };
+                greens.Remove(current);
+                reds.Add(current);
 
-            // Koordynaty
-            List<KeyValuePair<int, int>> fourNeighbors = new List<KeyValuePair<int, int>>()
-    {
-        new KeyValuePair<int, int>(-1, 0), // góra
-        new KeyValuePair<int, int>(1, 0),  // dół
-        new KeyValuePair<int, int>(0, -1), // lewo
-        new KeyValuePair<int, int>(0, 1)   // prawo
-    };
-
-            int maxX = matrix.GetLength(0);
-            if (maxX == 0)
-                return null;
-            int maxY = matrix[0].Length;
-            //magia działani algorytmu
-            while (true)
-            {
-                if (greens.Count == 0)
-                    return null;
-                //sprawdza nam koodrynaty obecnego węzła
-                KeyValuePair<string, matrixNode> current = smallestGreen();
-                if (current.Value.x == toX && current.Value.y == toY)
-                    return current.Value;
-
-                greens.Remove(current.Key); //usuwa obecny węzeł z listy otwartej, bo już został rozważony do ekspansji
-                reds.Add(current.Key, current.Value); //i dodaje go do listy zamkniętej aby na pewno go nie ruszać ponownie :)
-
-                foreach (KeyValuePair<int, int> plusXY in fourNeighbors)
-                {   //sprawdza nam koordynaty potencjalnych następnych ruchów 
-                    int nbrX = current.Value.x + plusXY.Key;
-                    int nbrY = current.Value.y + plusXY.Value;
-                    string nbrKey = nbrX.ToString() + nbrY.ToString();
-                    // sprawdza możliwość ruchu
-                    if (nbrX < 0 || nbrY < 0 || nbrX >= maxX || nbrY >= maxY  //czy pola są na mapie do poruszania się
-                        || matrix[nbrX][nbrY] == '5' // przeszkody
-                        || reds.ContainsKey(nbrKey)) // węzły już odrzucone
+                foreach (var neighbor in GetNeighbors(current, grid))
+                {
+                    if (reds.Any(n => n.Equals(neighbor)))
                         continue;
 
-                    if (greens.ContainsKey(nbrKey)) //jeśli jest w liście otwartej węzłów, sprawdza, czy jest on na optymalnej trasie
+                    double tentativeG = current.G + 1;
+                    bool tentativeBetter = false;
+                    if (!greens.Any(n => n.Equals(neighbor)))
                     {
-                        matrixNode curNbr = greens[nbrKey];
-                        int newFr = current.Value.fr + 1; // koszt jednego ruchu
-                        if (newFr < curNbr.fr)
-                        {
-                            curNbr.fr = newFr;
-                            curNbr.sum = curNbr.fr + curNbr.to;
-                            curNbr.parent = current.Value;
-                        }
+                        greens.Add(neighbor);
+                        neighbor.H = Heuristic(neighbor, goal);
+                        tentativeBetter = true;                       
                     }
-                    else
-                    { //jeśli nie ma to sprawdza dystans od węzła startowego i dodaje nowy węzeł do listy otwartej
-                        matrixNode curNbr = new matrixNode { x = nbrX, y = nbrY };
-                        curNbr.fr = current.Value.fr + 1; // koszt jednego ruchu
-                        curNbr.to = (int)Math.Sqrt(Math.Pow(nbrX - toX, 2) + Math.Pow(nbrY - toY, 2)); // dystans euklidesowy
-                        curNbr.sum = curNbr.fr + curNbr.to;
-                        curNbr.parent = current.Value;
-                        greens.Add(nbrKey, curNbr);
+                    else if (tentativeG < neighbor.G)
+                    {
+                        tentativeBetter = true;
+                    }
+                    if (tentativeBetter) 
+                    {
+                        neighbor.Parent = current;
+                        neighbor.G = tentativeG;
                     }
                 }
             }
+            return null; 
         }
     }
 }
-

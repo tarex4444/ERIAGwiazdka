@@ -12,14 +12,12 @@
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
-
-        <!-- Canvas for the grid -->
         <Canvas x:Name="PathCanvas" Background="LightGray" HorizontalAlignment="Left" Margin="5 5 5 5" />
-
-        <!-- Button to trigger the algorithm -->
         <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Center" Margin="10">
+            <Label x:Name="SelectModeLabel" Content="Tryb - wybór startu/finiszu" VerticalAlignment="Center" Width="150" Margin="10" Background="LightBlue"></Label>
             <Button x:Name="ReadButton" Content="Wczytaj mape" Click="ReadButton_Click" Width="100" Height="30" Margin="10" />
             <Button x:Name="RunButton" Content="Uruchom A*" Click="RunButton_Click" Width="100" Height="30" Margin="10" />
+            <!--<Button x:Name="RunConsoleButton" Content="Wersja Konsolowa" Click="RunConsoleButton_Click" Width="100" Height="30" Margin="10"/> -->
         </StackPanel>
     </Grid>
 </Window>
