@@ -1,4 +1,5 @@
-﻿using System.Diagnostics;
+﻿using System;
+using System.Diagnostics;
 using System.IO;
 using System.Security.Cryptography.X509Certificates;
 using System.Windows;
@@ -19,16 +20,9 @@ namespace Algorytm_A_gwiazdka
         public MainWindow()
         {
             InitializeComponent();
-            matrix = new int[20, 20];
-            for (int i = 0; i < 20; i++)
-            {
-                for (int j = 0; j < 20; j++)
-                {
-                    matrix[i, j] = 0;
-                }
-            }
+            matrix = ReadGridFromFile("gridempty.txt");
             DrawGrid(matrix);
-            this.KeyDown += MainWindow_KeyDown;            
+            this.KeyDown += MainWindow_KeyDown;
         }
         private void MainWindow_KeyDown(object sender, KeyEventArgs e)
         {
@@ -45,6 +39,7 @@ namespace Algorytm_A_gwiazdka
                 SelectModeLabel.Background = Brushes.LightBlue;
             }
         }
+
         static int[,] ReadGridFromFile(string fileName)
         {
             int[,] empty = { };
@@ -229,6 +224,14 @@ namespace Algorytm_A_gwiazdka
                 H = 0;
                 Parent = null;
             }
+            public Node(int x, int y, Node parent)
+            {
+                X = x;
+                Y = y;
+                G = 0;
+                H = 0;
+                Parent = parent;
+            }
 
             public override bool Equals(object obj)
             {
@@ -252,7 +255,7 @@ namespace Algorytm_A_gwiazdka
 
                 if (newX >= 0 && newY >= 0 && newX < grid.GetLength(0) && newY < grid.GetLength(1) && grid[newX, newY] == 0)
                 {
-                    neighbors.Add(new Node(newX, newY));
+                    neighbors.Add(new Node(newX, newY, node));
                 }
             }
 
@@ -269,14 +272,20 @@ namespace Algorytm_A_gwiazdka
             var greens = new List<Node>();
             var reds = new List<Node>();
 
-            greens.Add(start);
-
+            reds.Add(start);
+            foreach (Node neighbor in GetNeighbors(start, grid))
+            {
+                neighbor.G = 1;
+                neighbor.H = Heuristic(neighbor, end);
+                greens.Add(neighbor);
+            }
+            //do getNeighbors dodać tworzenie Parenta i do node'a konstruktor z nim
             while (greens.Count > 0)
             {
                 Node current = greens
-                    .OrderBy(n => n.F)
-                    .ThenByDescending(n => greens.IndexOf(n)) 
-                    .First();
+                                .OrderByDescending(n => n.F)
+                                //.ThenByDescending(n => greens.IndexOf(n))
+                                .Last();
 
                 if (current.Equals(goal))
                 {
@@ -288,35 +297,29 @@ namespace Algorytm_A_gwiazdka
                     }
                     return path;
                 }
-
                 greens.Remove(current);
                 reds.Add(current);
-
-                foreach (var neighbor in GetNeighbors(current, grid))
+                var neighbors = GetNeighbors(current, grid);
+                for (int i = 0; i < neighbors.Count(); i++)
                 {
-                    if (reds.Any(n => n.Equals(neighbor)))
+                    if (reds.Any(n => n.Equals(neighbors[i])))
+                    {
                         continue;
-
-                    double tentativeG = current.G + 1;
-                    bool tentativeBetter = false;
-                    if (!greens.Any(n => n.Equals(neighbor)))
-                    {
-                        greens.Add(neighbor);
-                        neighbor.H = Heuristic(neighbor, goal);
-                        tentativeBetter = true;                       
                     }
-                    else if (tentativeG < neighbor.G)
+                    if (greens.Any(n => n.Equals(neighbors[i])) == false)
                     {
-                        tentativeBetter = true;
-                    }
-                    if (tentativeBetter) 
-                    {
-                        neighbor.Parent = current;
-                        neighbor.G = tentativeG;
-                    }
+                        greens.Add(neighbors[i]);
+                        neighbors[i].H = Heuristic(neighbors[i], end);
+                        var neighborGValue = current.G + 1;
+                        if (neighbors[i].G > neighborGValue)
+                        {
+                            neighbors[i].Parent = current;
+                            neighbors[i].G = neighborGValue;
+                        }
+                    }                   
                 }
             }
-            return null; 
+            return null;
         }
     }
 }
