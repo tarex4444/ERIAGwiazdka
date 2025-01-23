@@ -14,8 +14,8 @@ namespace Algorytm_A_gwiazdka
     {
         private const int CellSize = 20;
         public int[,] matrix;
-        Node start = new Node(0, 19);
-        Node end = new Node(19, 0);
+        Node start = new Node(19, 0);
+        Node end = new Node(0, 19);
         private bool isCtrlMode = false;
         public MainWindow()
         {
@@ -184,10 +184,10 @@ namespace Algorytm_A_gwiazdka
             }
             //Process.Start("map_generator.exe");
             matrix = ReadGridFromFile("grid.txt");
-            start.X = 0;
-            start.Y = 19;
-            end.X = 19;
-            end.Y = 0;
+            start.X = 19;
+            start.Y = 0;
+            end.X = 0;
+            end.Y = 19;
             DrawGrid(matrix);
         }
         private void RunButton_Click(object sender, RoutedEventArgs e)
@@ -245,8 +245,8 @@ namespace Algorytm_A_gwiazdka
         private static List<Node> GetNeighbors(Node node, int[,] grid)
         {
             var neighbors = new List<Node>();
-            int[] dx = { 0, 0, -1, 1 };
-            int[] dy = { -1, 1, 0, 0 };
+            int[] dx = { -1, 1, 0, 0 };
+            int[] dy = { 0, 0, -1, 1 };
 
             for (int i = 0; i < 4; i++)
             {
