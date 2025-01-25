@@ -89,7 +89,7 @@ namespace Algorytm_A_gwiazdka
                         {
                             5 => Brushes.DarkGray,
                             3 => Brushes.Green,
-                            2 => Brushes.DarkGreen,
+                            2 => Brushes.LimeGreen,
                             1 => Brushes.Red,
                             0 => Brushes.White
                         }
@@ -109,9 +109,16 @@ namespace Algorytm_A_gwiazdka
                 int row = (int)point.X;
                 int col = (int)point.Y;
                 if (isCtrlMode)
-                {
-                    matrix[row, col] = 5;
-                    rect.Fill = Brushes.DarkGray;
+                {                    
+                    if(rect.Fill == Brushes.DarkGray)
+                    {
+                        matrix[row, col] = 0;
+                        rect.Fill = Brushes.White;
+                    } else
+                    {
+                        matrix[row, col] = 5;
+                        rect.Fill = Brushes.DarkGray;
+                    }
                 } else
                 {
                     if (e.ChangedButton == MouseButton.Left)
@@ -228,7 +235,7 @@ namespace Algorytm_A_gwiazdka
             {
                 X = x;
                 Y = y;
-                G = 0;
+                G = parent.G + 1;
                 H = 0;
                 Parent = parent;
             }
@@ -271,7 +278,6 @@ namespace Algorytm_A_gwiazdka
         {
             var greens = new List<Node>();
             var reds = new List<Node>();
-
             reds.Add(start);
             foreach (Node neighbor in GetNeighbors(start, grid))
             {
@@ -290,7 +296,7 @@ namespace Algorytm_A_gwiazdka
                 if (current.Equals(goal))
                 {
                     var path = new List<Node>();
-                    while (current != null)
+                   while (current != null)
                     {
                         path.Add(current);
                         current = current.Parent;
@@ -311,7 +317,7 @@ namespace Algorytm_A_gwiazdka
                         greens.Add(neighbors[i]);
                         neighbors[i].H = Heuristic(neighbors[i], end);
                         var neighborGValue = current.G + 1;
-                        if (neighbors[i].G > neighborGValue)
+                        if (neighbors[i].F > neighborGValue + neighbors[i].H)
                         {
                             neighbors[i].Parent = current;
                             neighbors[i].G = neighborGValue;
